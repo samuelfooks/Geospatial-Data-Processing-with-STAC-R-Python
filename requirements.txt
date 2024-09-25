@@ -1,0 +1,10 @@
+pystac-client
+requests
+geopandas
+pandas
+zarr
+xarray
+aiohttp
+fsspec
+matplotlib
+cartopy
