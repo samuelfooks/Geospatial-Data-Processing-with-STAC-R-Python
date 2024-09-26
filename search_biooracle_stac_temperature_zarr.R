@@ -5,6 +5,7 @@ library(dplyr)
 library(lubridate)
 library(tidyr)
 
+## In this script we find zarr assets from a static STAC catalog. Finding the temperature data from the BioOracle catalog.
 # Base STAC endpoint
 stac_endpoint_url <- "https://s3.waw3-1.cloudferro.com/emodnet/bio_oracle/stac/catalog.json"
 # Extract the root by removing 'catalog.json'
@@ -41,9 +42,6 @@ for (i in seq_along(catalog_links)) {
 
 # loop through and get each collection from the 'oceantemperature' catalog
 # then get all the items in the 'thetao_mean' collection
-
-collection_selector = 'thetao_mean'
-
 selected_collections <- list()
 # Initialize an empty DataFrame to store item links
 selected_collection_items <- data.frame(item_link = character(), stringsAsFactors = FALSE)
@@ -55,16 +53,16 @@ for (i in seq_along(catalog_links)){
     cat_json <- fromJSON(content(cat_response, as = "text", encoding = "UTF-8"))
     links = cat_json$links$href
     for (j in seq_along((links))) {
-        if (grepl('collection.json', links[i], ignore.case=TRUE)) {
-          collection = gsub("^\\./", "", dirname(links[j]))
-          selected_collections <- append(selected_collections, collection)
-          print(collection)
+      if (grepl('collection.json', links[i], ignore.case=TRUE)) {
+        collection = gsub("^\\./", "", dirname(links[j]))
+        selected_collections <- append(selected_collections, collection)
+        print(collection)
         
-        if (grepl(collection_selector, collection, ignore.case = TRUE)) {
+        if (grepl('thetao_mean', collection, ignore.case = TRUE)) {
           collection_link = glue('{dirname(cat_link)}/{collection}/collection.json')
           collection_json <- fromJSON(content(GET(collection_link), as ='text', encoding = 'UTF-8'))
           collection_links = collection_json$links
-         
+          
           
           # Find rows where 'item' is in the rel column
           matched_rows <- collection_links[grepl('item', collection_links$rel, ignore.case = TRUE), ]
@@ -108,6 +106,7 @@ fetch_item_jsons <- function(selected_items_df) {
     encoded_item_link <- URLencode(item_link)
     
     item_response <- GET(encoded_item_link)
+    print(glue("HTTP Status: {http_status(item_response)$message}"))
     
     if (http_status(item_response)$category == "Success") {
       item_json <- fromJSON(content(item_response, as = "text", encoding = "UTF-8"))
@@ -144,9 +143,6 @@ fetch_item_jsons <- function(selected_items_df) {
   item_json_df <- bind_rows(item_json_list)  
   return(item_json_df)
 }
-
-
-# Filtering items based on date time ranges, asset links, and item IDs
 
 # Fetch item JSONs using the selected_collection_items DataFrame
 item_json_df <- fetch_item_jsons(selected_collection_items)
