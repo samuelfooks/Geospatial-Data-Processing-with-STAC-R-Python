@@ -1,0 +1,266 @@
+---
+title: "Search BioOracle STAC Catalog for Temperature Zarr Assets"
+output: html_notebook
+description: "This script searches a static STAC catalog for temperature data and retrieves Zarr assets."
+---
+
+```{r setup, include=FALSE}
+library(httr)
+library(jsonlite)
+library(glue)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+```
+
+Here is the endpoint of the static STAC catalog.  It is a JSON file structure that contains links to other internal catalogs and collections.
+Be sure to read the STAC documentation to understand STAC specifications. 
+https://github.com/radiantearth/stac-spec/tree/master
+```{r}
+stac_endpoint_url <- "https://s3.waw3-1.cloudferro.com/emodnet/bio_oracle/stac/catalog.json"
+# Extract the root by removing 'catalog.json'
+stac_root <- dirname(stac_endpoint_url)
+```
+
+Retrieve the JSON data from the STAC endpoint.
+
+```{r}
+response <- GET(stac_endpoint_url)
+json_data <- fromJSON(content(response, as = "text", encoding = "UTF-8"))
+```
+
+Here we filter the links based on the keyword 'temperature' in the title. Since this STAC makes use of internal
+catalogs, we will need to loop through the catalogs to find the collections and items.
+
+```{r}
+catalog_selector = 'temperature'
+selected_catalogs <- json_data$links[grep(catalog_selector, json_data$links, ignore.case = TRUE), ]
+selected_catalogs_titles <- json_data$links[grep(catalog_selector, json_data$links$title, ignore.case = TRUE), ]
+print(selected_catalogs_titles$title)
+
+catalog_links = glue('{stac_root}/{selected_catalogs_titles$title}/catalog.json')
+
+print(catalog_links)
+```
+
+Loop through and print each catalog link.
+
+```{r}
+for (i in seq_along(catalog_links)) {
+  print(catalog_links[i])
+}
+```
+
+Loop through and get each collection from the 'oceantemperature' catalog, then get all the items in the 'thetao_mean' collection.
+
+```{r}
+for (i in seq_along(catalog_links)) {
+  print(catalog_links[i])
+  internal_catalog_response = GET(catalog_links[i])
+  internal_catalog_json <- fromJSON(content(internal_catalog_response, as = "text", encoding = "UTF-8"))
+  print(internal_catalog_json)
+}
+```
+
+
+Here is a function to get the links to the collections from the oceantemperature 'internal' catalog that is inside this STAC
+catalog. This function will be used to get the links to the collections inside the 'oceantemperature' catalog.
+```{r}
+get_catalog_links <- function(catalog_links) {
+  selected_collections <- list()
+  for (i in seq_along(catalog_links)) {
+    # check if the catalog link contains 'oceantemperature'
+    if (grepl('oceantemperature', catalog_links[i], ignore.case = TRUE)) {
+      cat_link <- catalog_links[i]
+      # Get the catalog JSON
+      cat_response <- GET(cat_link)
+      cat_json <- fromJSON(content(cat_response, as = "text", encoding = "UTF-8"))
+      # get all the links in the catalog, these will include links to the catalog root (../catalog.json) and the collections
+      links <- cat_json$links$href
+      for (j in seq_along(links)) {
+        # check if the link is a collection and add it to the list
+        if (grepl('collection.json', links[j], ignore.case = TRUE)) {
+          collection <- gsub("^\\./", "", dirname(links[j]))
+          selected_collections <- append(selected_collections, collection)
+          print(collection)
+        }
+      }
+    }
+  }
+  selected_collections
+}
+```
+
+This function will get the STAC items inside the collections that contain 'thetao_mean' in their ID.
+These STAC items contain the actual data that we are interested in.
+
+```{r}
+get_collection_items <- function(selected_collections, catalog_links) {
+  selected_collection_items <- data.frame(item_link = character(), stringsAsFactors = FALSE)
+  for (collection in selected_collections) {
+    # Check if the collection link contains 'thetao_mean'
+    if (grepl('thetao_mean', collection, ignore.case = TRUE)) {
+      cat_link <- catalog_links[grepl('oceantemperature', catalog_links, ignore.case = TRUE)][1]
+      collection_link <- glue('{dirname(cat_link)}/{collection}/collection.json')
+      collection_json <- fromJSON(content(GET(collection_link), as = 'text', encoding = 'UTF-8'))
+
+      # again here we need to loop through the links to find the items, since some links are to the parent catalog, or root
+      collection_links <- collection_json$links
+      
+      # Find rows where 'item' is in the rel column, this means that the link is an item
+      matched_rows <- collection_links[grepl('item', collection_links$rel, ignore.case = TRUE), ]
+      
+      # If any matches are found, retrieve the href
+      if (nrow(matched_rows) > 0) {
+        for (k in seq_len(nrow(matched_rows))) {
+          item_href <- matched_rows[k, "href"]
+          item_title <- matched_rows[k, 'title']
+          # Chop off the leading './' if it exists
+          item_href <- gsub("^\\./", "", item_href)
+          
+          # Create the full item link
+          item_link <- glue("{dirname(collection_link)}/{item_href}")
+          item_link <- as.character(item_link)
+          print(item_link)  # Print or store the item link as needed
+          # Append the item link to the selected_collection_items DataFrame
+          selected_collection_items <- rbind(selected_collection_items, data.frame(item_link = item_link, stringsAsFactors = FALSE))
+        }
+      } else {
+        print(glue("No matches found for item: {item}"))
+      }
+    }
+  }
+  selected_collection_items
+}
+```
+
+Here we execute the functions to get the links to the collections and the items inside the collections.
+```{r}
+
+selected_collections <- get_catalog_links(catalog_links)
+selected_collection_items <- get_collection_items(selected_collections, catalog_links)
+
+# Print the final DataFrame of selected collection items
+print(selected_collection_items)
+```
+
+
+This function fetches the JSON data for each item in the selected collection items DataFrame.
+
+```{r}  
+fetch_item_jsons <- function(selected_items_df) {
+  # Initialize an empty list to store item JSON data
+  item_json_list <- list()  
+  
+  for (i in seq_len(nrow(selected_items_df))) {
+    item_link <- as.character(selected_items_df$item_link[i])  # Convert glue object to character
+    print('printing link')
+    print(item_link)
+    
+    # URL encode the item link
+    encoded_item_link <- URLencode(item_link)
+    
+    item_response <- GET(encoded_item_link)
+    print(glue("HTTP Status: {http_status(item_response)$message}"))
+    
+    if (http_status(item_response)$category == "Success") {
+      item_json <- fromJSON(content(item_response, as = "text", encoding = "UTF-8"))
+      print('item id')
+      # Create a named list to collect item data
+      item_data <- list()
+      item_data$id <- item_json$id
+      item_data$type <- ifelse(!is.null(item_json$type), item_json$type, NA)
+      item_data$geometry <- ifelse(!is.null(item_json$geometry), toJSON(item_json$geometry), NA)  # Convert geometry to JSON string for consistency
+      
+      # Extract properties and assets dynamically
+      if (!is.null(item_json$properties)) {
+        for (prop in names(item_json$properties)) {
+          item_data[[paste0("properties_", prop)]] <- ifelse(!is.null(item_json$properties[[prop]]), item_json$properties[[prop]], NA)
+        }
+      }
+      
+      if (!is.null(item_json$assets)) {
+        for (asset in names(item_json$assets)) {
+          asset_info <- item_json$assets[[asset]]
+          item_data[[paste0("assets_", asset, "_href")]] <- ifelse(!is.null(asset_info$href), asset_info$href, NA)
+          item_data[[paste0("assets_", asset, "_type")]] <- ifelse(!is.null(asset_info$type), asset_info$type, NA)
+        }
+      }
+      
+      # Add the data for this item to the list
+      item_json_list[[i]] <- as.data.frame(item_data, stringsAsFactors = FALSE)  # Store the structured data frame
+    }  else {
+      print(glue("Failed to fetch item JSON for link: {item_link}"))
+    }
+  }
+  
+  # Combine all item data frames into one
+  item_json_df <- bind_rows(item_json_list)  
+  return(item_json_df)
+}
+```
+
+
+Make a call to the function to fetch the JSON data for each item in the selected collection items DataFrame.
+
+```{r}
+item_json_df <- fetch_item_jsons(selected_collection_items)
+
+# Print the final DataFrame
+print(item_json_df)
+# Initialize an empty DataFrame to store all items
+```
+
+
+Filter the items based on the start and end datetime
+
+```{r}
+filtered_items_df <- item_json_df %>%
+  filter(
+    properties_start_datetime <= "2029-01-01T00:00:00Z" & 
+      properties_end_datetime > "2080-01-01T00:00:00Z"
+  )
+```
+
+Then filter for items with 'ssp245' in the ID.
+This is to find temperature data from BioOracle climate scenario ssp245.
+More info https://www.bio-oracle.org/, https://erddap.bio-oracle.org/erddap/index.html
+
+```{r}
+ssp245_items_df <- filtered_items_df %>%
+  filter(grepl("ssp245", id))
+```
+
+
+Loop through the asset columns from the item with ssp245 in the id to filter for '.zarr' assets.
+These can then be used be other packages to quickly subset the data. Instead of downloading large NetCDFs from the ERDDAP server
+
+```{r} 
+# Initialize an empty dataframe to store results
+ssp245_zarr_assets_df <- data.frame()
+
+# Get all columns with 'asset' in the column name
+asset_cols <- filtered_items_df %>%
+  select(contains("asset"))
+
+# Loop through the asset columns from the item with ssp245 in the id to filter for '.zarr'
+for (col in names(asset_cols)) {
+  # Check each asset column for '.zarr' links
+  zarr_assets_temp <- ssp245_items_df %>%
+    select(id, !!sym(col)) %>%  # Dynamically select column
+    filter(sapply(!!sym(col), function(x) grepl("\\.zarr$", x)))  # Filter for '.zarr'
+  
+  # Combine results
+  ssp245_zarr_assets_df<- bind_rows(ssp245_zarr_assets_df, zarr_assets_temp)
+}
+
+# Display the results
+print("Filtered Items (2030 to 2090):")
+print(filtered_items_df)
+
+print("Items with 'ssp245' in ID:")
+print(ssp245_items_df)
+
+print("Assets with '.zarr':")
+print(ssp245_zarr_assets_df$assets_Zarr_href)
+```
