@@ -1,4 +1,4 @@
-#  EDITO STAC TOOLs
+# Geospatial Data Processing with STAC using Python and R
 
 ### Description
 This is a small repository that gives a few short examples of basic scripts on how to access Spatial Temporal Asset Catalogs(STAC) catalogs. 
