@@ -43,8 +43,8 @@ This notebook is in development but shows some ways to interact with zarr datase
 3. Subset these data products to get data of a specific parameter/variable from a geographic range.  And if other dimensions are present, make a selection in those dimensions to target a specific data slice (array)
 4. Plot these arrays, or use in models/processes.
 
-### search_edito_stac_temperature_zarr.R
-
+### search_edito_stac_temperature_zarr_R.ipynb
+Notebook showing the some of the same functionality with rstac as with pystac-client
 1. This script fetches zarr data from the EDITO STAC API https://catalog.dive.edito.eu/.  
 2. Filter Function: Define a function to filter collections based on a keyword.
 3. Retrieve collections from the STAC endpoint
@@ -54,8 +54,8 @@ This notebook is in development but shows some ways to interact with zarr datase
 7. If any assets are of the type '.zarr' save them in a dataframe along with the item properties.
 
 
-### search_biooracle_stac_temperature_zarr.R
-This script fetches temperature data from the Bio-Oracle STAC catalog using a static JSON catalog. It searches for a collection of temperature data, retrieves relevant items, and filters them for Zarr assets. The major steps include:
+### search_biooracle_stac_temperature_zarr_R.ipynb
+Notebook showing how to parse a static json catalog using R packages.
 
 1. Set the STAC catalog endpoint URL.
 2. Fetch and parse catalog data.
@@ -67,13 +67,18 @@ This script fetches temperature data from the Bio-Oracle STAC catalog using a st
 
 ### Dependencies
 
-for python users
-
+```bash
 pip install -r requirements.txt
 
-for R users
-
+R
 install.packages(c('units', 'sf', 'httr', 'jsonlite', 'glue', 'dplyr', 'lubridate', 'tidyr', 'rstac', 'purrr'))
+q()
+```
+
+If you have conda installed(recommended for full environment)
+```bash
+mamba env create -f environment.yml
+```
 
 ## In Development
 
