@@ -12,7 +12,7 @@ ARCO Data: Analysis Ready Cloud Optimized (ARCO) data are datasets designed for 
 
 STAC Endpoints:
 
-- Active STAC API: https://catalog.dive.edito.eu/ – A live API where you can make queries to search and filter data.
+- Active STAC API: https://api.dive.edito.eu/ – A live API where you can make queries to search and filter data.
 - Static STAC JSON: https://s3.waw3-1.cloudferro.com/emodnet/bio_oracle/stac/catalog.json – A static catalog stored in JSON format for browsing data without an API.
 
 
