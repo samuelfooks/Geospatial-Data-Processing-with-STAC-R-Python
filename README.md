@@ -28,7 +28,7 @@ This setup allows easy access to large datasets, especially cloud-optimized form
 ### search_edito_stac_zarr_assets.ipynb
 
 This notebook is a scrolling tutorial on how to go through a STAC catalog using pystac-client.  
-1. Using pystac-client we can look up all the collections in  https://catalog.dive.edito.eu/.
+1. Using pystac-client we can look up all the collections in  https://apî.dive.edito.eu/.
 2. Select collections based on the variables of interest.  In the notebook collections with: 'seabed_habitats', 'dissolved_oxygen', 'temperature' in the id are filtered.
 3. Then using start_datetime and end_datetime properties of STAC Items to filter the items by time period
 4. Find any items that have Analysis Ready Cloud Optimized assets (.parquet, .zarr), and make a Dataframe and save it to a csv.
