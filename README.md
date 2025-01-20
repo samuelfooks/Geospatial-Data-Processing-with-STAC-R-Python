@@ -40,8 +40,9 @@ You can then subset each asset and get very select data from what are otherwise 
 This notebook is in development but shows some ways to interact with zarr datasets and subset specific data and combine it with other subsetted ARCO data.
 1. Open a csv containing links to ARCO assets
 2. Find .zarr assets specifically
-3. Subset these data products to get data of a specific parameter/variable from a geographic range.  And if other dimensions are present, make a selection in those dimensions to target a specific data slice (array)
-4. Plot these arrays, or use in models/processes.
+3. Subset these data products by asking the user for input for a specific parameter/variable from a geographic range.  And if other dimensions are present, make a selection in those dimensions to target a specific data slice (array)
+4. Plot these arrays.
+
 
 ### search_edito_stac_temperature_zarr_R.ipynb
 Notebook showing the some of the same functionality with rstac as with pystac-client
@@ -80,9 +81,9 @@ If you have conda installed(recommended for full environment)
 mamba env create -f environment.yml
 ```
 
-## In Development
+### Limitations
 
-subsetting_arco_data.ipynb
+This tutorial is meant to serve as a template for access a STAC and for the specifications of the EDITO STAC as of January 2025.  The composition of a STAC catalog is subject to change.  Use the principles of the tutorial to access STAC items and ARCO assets from the catalogs mentioned here, or elsewhere.   
 
 ## Authors
 
